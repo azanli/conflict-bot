@@ -22,27 +22,20 @@ Add the Action to Your Repository: Create a new workflow file (.yml) in the .git
 name: PR Conflict Checker
 
 on:
-pull_request:
-types: [opened, synchronize]
+  pull_request:
+    types: [opened, synchronize]
 
 jobs:
-check_pr_conflicts:
-runs-on: ubuntu-latest
-steps: - name: Check out code
-uses: actions/checkout@v2
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v2
-        with:
-          node-version: "14"
-
-      - name: Install dependencies
-        run: npm install
+  check_pr_conflicts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
 
       - name: Run PR Conflict Checker
-        uses: friendly-robot/conflict-bot
+        uses: Friendly-Robot/conflict-bot@main
         with:
-          github-token: ${{ secrets.CONFLICT_BOT_ACCESS_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 Initialize and Set Up Conflict-Bot: Clone the Conflict-Bot repository and navigate to the root directory. Run npm install to install the necessary dependencies.
