@@ -1,0 +1,27 @@
+{
+  "name": "conflict-bot",
+  "version": "0.0.1",
+  "description": "Github action for tracking conflicts between open pull requests",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Friendly-Robot/conflict-bot.git"
+  },
+  "keywords": [
+    "github",
+    "action",
+    "pull",
+    "request",
+    "conflict",
+    "bot"
+  ],
+  "author": "friendly-robot",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Friendly-Robot/conflict-bot/issues"
+  },
+  "homepage": "https://github.com/Friendly-Robot/conflict-bot#readme"
+}
