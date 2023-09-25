@@ -208,7 +208,7 @@ async function createConflictComment({
       conflictMessage += `</details>\n\n`;
     });
 
-    await octokit.issues.createComment({
+    await octokit.rest.issues.createComment({
       owner: repo.owner,
       repo: repo.repo,
       issue_number: prNumber,
