@@ -8,6 +8,7 @@ async function run1() {
 
   try {
     const token = core.getInput("github-token", { required: true });
+    
     const octokit = github.getOctokit(token);
 
     const pullRequest = github.context.payload.pull_request;
