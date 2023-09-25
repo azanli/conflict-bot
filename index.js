@@ -3,7 +3,7 @@ const github = require("@actions/github");
 const { execSync } = require("child_process");
 const readFileSync = require("fs").readFileSync;
 
-async function run() {
+async function run1() {
   let pr1Branch;
 
   try {
@@ -239,7 +239,9 @@ async function attemptMerge(pr2Branch) {
 
     try {
       // Attempt to merge PR2's branch in memory without committing or fast-forwarding
-      execSync(`git merge refs/remotes/origin/tmp_${pr2Branch} --no-commit --no-ff`);
+      execSync(
+        `git merge refs/remotes/origin/tmp_${pr2Branch} --no-commit --no-ff`
+      );
     } catch (mergeError) {
       const stdoutStr = mergeError.stdout.toString();
       if (stdoutStr.includes("Automatic merge failed")) {
@@ -362,4 +364,4 @@ async function requestReviewsInConflictingPRs({
   }
 }
 
-run();
+run1();
