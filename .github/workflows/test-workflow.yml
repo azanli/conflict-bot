@@ -2,7 +2,7 @@ name: Conflict-Bot Test
 
 on:
   pull_request:
-    types: [opened, synchronized]
+    types: [opened, synchronize]
 
 jobs:
   check_pr_conflicts:
