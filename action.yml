@@ -1,4 +1,4 @@
-name: "Conflict-Bot"
+name: "Conflict-Bottom"
 description: "Check for conflicts against other open PRs"
 inputs:
   github-token:
