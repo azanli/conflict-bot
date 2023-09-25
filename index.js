@@ -197,11 +197,14 @@ async function createConflictComment({
 
     conflictArray.forEach((conflict) => {
       conflictMessage += `<details>\n`;
-      conflictMessage += `  <summary><strong>Author:</strong> ${conflict.author} - <strong>PR:</strong> #${conflict.prNumber}</summary>\n`;
-      conflictMessage += `  <p><strong>File:</strong> ${conflict.file}</p>\n`;
-      conflictMessage += `  <p><strong>Lines:</strong> ${conflict.lines.join(
-        ", "
-      )}</p>\n`;
+      conflictMessage += `  <summary><strong>Author:</strong> ${conflict.user} - <strong>PR:</strong> #${conflict.number}</summary>\n`;
+
+      // Loop through the conflicts array for each PR
+      conflict.conflicts.forEach((fileConflict) => {
+        conflictMessage += `  <p><strong>File:</strong> ${fileConflict.file}</p>\n`;
+        conflictMessage += `  <p><strong>Lines:</strong> ${fileConflict.lines.join(", ")}</p>\n`;
+      });
+
       conflictMessage += `</details>\n\n`;
     });
 
@@ -216,6 +219,7 @@ async function createConflictComment({
     throw error;
   }
 }
+
 
 async function requestReviews({
   octokit,
