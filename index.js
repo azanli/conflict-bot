@@ -201,8 +201,10 @@ async function createConflictComment({
 
       // Loop through the conflicts array for each PR
       conflict.conflicts.forEach((fileConflict) => {
-        conflictMessage += `  <p><strong>File:</strong> ${fileConflict.file}</p>\n`;
-        conflictMessage += `  <p><strong>Lines:</strong> ${fileConflict.lines.join(", ")}</p>\n`;
+        conflictMessage += `  <span><strong>File:</strong> ${fileConflict.file}</span>\n`;
+        conflictMessage += `  <span><strong>${
+          fileConflict.lines.length > 1 ? "Lines" : "Line"
+        }:</strong> ${fileConflict.lines.join(", ")}</span>\n`;
       });
 
       conflictMessage += `</details>\n\n`;
