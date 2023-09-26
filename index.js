@@ -127,6 +127,7 @@ async function getChangedFiles(octokit, repo, prNumber) {
 
 function extractConflictingLineNumbers(filePath) {
   const fileContent = readFileSync(filePath, "utf8");
+  console.log('fileContent\n', fileContent);
   const lines = fileContent.split("\n");
 
   let inConflict = false;
