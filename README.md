@@ -7,7 +7,9 @@ Conflict-Bot is a GitHub Action designed to help maintain a smooth and efficient
 #### Pre-requisites
 
 A GitHub repository where you intend to use Conflict-Bot.
+
 Necessary permissions to add a GitHub Action to the repository.
+
 A fine-grained GitHub access token with the following permissions:
 
 - Actions (read-only)
