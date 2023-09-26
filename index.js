@@ -267,7 +267,7 @@ async function createConflictComment({
         });
 
         const fileSha = pr.data.files.find(
-          (file) => file.filename === "your-filename"
+          (file) => file.filename === fileName
         ).sha;
         const url = `https://github.com/${context.repo.owner}/${context.repo.repo}/pull/${context.issue.number}/files#diff-${fileSha}`;
 
