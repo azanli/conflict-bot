@@ -207,7 +207,7 @@ async function createConflictComment({
   octokit,
   repo,
   prNumber,
-  conflictArray,
+  conflictData,
 }) {
   try {
     let conflictMessage = "### Conflicts Found\n\n";
