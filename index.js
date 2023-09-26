@@ -138,12 +138,12 @@ function extractConflictingLineNumbers(filePath) {
     lineCounter++; // keep track of the line number
 
     if (line.startsWith("<<<<<<<")) {
-      inConflict = false; // Turn off inConflict for "ours"
+      inConflict = true; // Turn on inConflict for "ours"
+      conflictLines.push(lineCounter);
       continue;
     }
 
-    if (line.startsWith("=======") && !inConflict) {
-      inConflict = true; // Turn on inConflict for "theirs"
+    if (line.startsWith("=======")) {
       continue;
     }
 
@@ -227,7 +227,7 @@ async function createConflictComment({
       conflictMessage += `  <summary><strong>Author:</strong> @${data.user} - <strong>PR:</strong> #${data.number}</summary>\n`;
 
       for (const [fileName, lineNumbers] of Object.entries(data.conflictData)) {
-        conflictMessage += `  - <strong>${fileName}:</strong> Lines ${lineNumbers.join(
+        conflictMessage += `  - <strong>${fileName}:</strong> ${lineNumbers.length > 1 ? 'Lines' : 'Line'} ${lineNumbers.join(
           ", "
         )}\n`;
       }
