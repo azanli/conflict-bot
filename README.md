@@ -55,5 +55,3 @@ Conflict-Bot is open-source and we welcome contributions. If you'd like to contr
 We hope Conflict-Bot helps maintain a smooth and efficient code integration process in your repository. If you have any questions or need further assistance, feel free to open an issue in the repository.
 
 Happy Coding!
-
-<sub>This project is licensed under the MIT License.</sub>
