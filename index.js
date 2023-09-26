@@ -265,13 +265,12 @@ async function createConflictComment({
           repo: repo.repo,
           pull_number: data.number,
         });
-        console.log('PRr', files)
-        const fileSha = files.find(
-          (file) => file.filename === fileName
-        ).sha;
-        const url = `https://github.com/${repo.owner}/${repo.repo}/pull/${data.number}/files#diff-${fileSha}`;
 
-        conflictMessage += `  - <strong>[${fileName}](${url}):</strong> ${
+        const blobUrl = files.find(
+          (file) => file.filename === fileName
+        ).blob_url;
+
+        conflictMessage += `  - <strong>[${fileName}]('${blobUrl}'):</strong> ${
           lineNumbers.length > 1 ? "Lines" : "Line"
         } ${lineNumbers.join(", ")}\n`;
       }
