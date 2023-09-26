@@ -129,6 +129,9 @@ function extractConflictingLineNumbers(filePath) {
   const fileContent = readFileSync(filePath, "utf8");
   const lines = fileContent.split("\n");
 
+  console.log(`Total lines processed: ${lines.length}`);
+  console.log(lines.slice(320).join("\n"));
+
   let lineCounter = 0;
   const conflictLines = [];
   let oursBlock = [];
