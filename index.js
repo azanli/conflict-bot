@@ -146,7 +146,7 @@ function extractConflictingLineNumbers(filePath) {
 
     if (line.startsWith("<<<<<<< HEAD")) {
       inOursBlock = true;
-      conflictStartLine = lineCounter + 1;
+      conflictStartLine = lineCounter;
       console.log(`Conflict started at line: ${conflictStartLine}`);
       continue;
     }
