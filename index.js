@@ -3,7 +3,7 @@ const github = require("@actions/github");
 const { execSync } = require("child_process");
 const readFileSync = require("fs").readFileSync;
 
-async function run4() {
+async function run() {
   try {
     const token = core.getInput("github-token", { required: true });
     const octokit = github.getOctokit(token);
@@ -345,4 +345,4 @@ async function requestReviewsInConflictingPRs({
   }
 }
 
-run4();
+run();
