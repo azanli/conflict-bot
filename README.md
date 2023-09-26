@@ -22,6 +22,8 @@ A fine-grained GitHub access token with the following permissions:
 
 Create a Personal Access Token: Generate a personal access token with the necessary permissions to enable Conflict-Bot to interact with your repository.
 
+Save the access token in your Actions Repository Secrets under the name `CONFLICT_BOT_ACCESS_TOKEN`.
+
 Add the Action to Your Repository: Create a new workflow file (.yml) in the .github/workflows directory of your repository and add the configuration for Conflict-Bot.
 
 ##### Here is a basic setup for your GitHub Action workflow:
