@@ -261,15 +261,15 @@ async function createConflictComment({
 
       for (const [fileName, lineNumbers] of Object.entries(data.conflictData)) {
         const pr = await octokit.rest.pulls.get({
-          owner: context.repo.owner,
-          repo: context.repo.repo,
-          pull_number: context.issue.number,
+          owner: repo.owner,
+          repo: repo.repo,
+          pull_number: data.number,
         });
 
         const fileSha = pr.data.files.find(
           (file) => file.filename === fileName
         ).sha;
-        const url = `https://github.com/${context.repo.owner}/${context.repo.repo}/pull/${context.issue.number}/files#diff-${fileSha}`;
+        const url = `https://github.com/${repo.owner}/${repo.repo}/pull/${issue.number}/files#diff-${fileSha}`;
 
         conflictMessage += `  - <strong>[${fileName}](${url}):</strong> ${
           lineNumbers.length > 1 ? "Lines" : "Line"
@@ -290,6 +290,7 @@ async function createConflictComment({
     throw error;
   }
 }
+
 
 async function requestReviews({
   octokit,
