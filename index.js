@@ -127,7 +127,6 @@ async function getChangedFiles(octokit, repo, prNumber) {
 
 function extractConflictingLineNumbers(filePath) {
   const fileContent = readFileSync(filePath, "utf8");
-  console.log(fileContent)
   const lines = fileContent.split("\n");
 
   let lineCounter = 0;
@@ -143,30 +142,36 @@ function extractConflictingLineNumbers(filePath) {
 
     if (line.startsWith("<<<<<<< HEAD")) {
       inOursBlock = true;
-      conflictStartLine = lineCounter;  // Remember where the conflict started
-      continue;  // Skip this line
+      conflictStartLine = lineCounter;
+      console.log(`Conflict started at line: ${conflictStartLine}`);
+      continue;
     }
 
     if (line.startsWith("=======")) {
       inOursBlock = false;
       inTheirsBlock = true;
-      continue;  // Skip this line
+      console.log(`Switching to THEIRS block at line: ${lineCounter}`);
+      continue;
     }
 
     if (line.startsWith(">>>>>>>")) {
       inTheirsBlock = false;
+      console.log(`Conflict end detected at line: ${lineCounter}`);
+      console.log('Comparing Ours and Theirs Block');
 
-      // Compare oursBlock and theirsBlock here to determine which lines actually differ
       oursBlock.forEach((ourLine, index) => {
         if (theirsBlock[index] !== undefined && ourLine !== theirsBlock[index]) {
-          conflictLines.push(conflictStartLine + index);  // Adjust line number based on start of conflict
+          const actualLineNumber = conflictStartLine + index;
+          conflictLines.push(actualLineNumber);
+          console.log(`Conflict detected at line: ${actualLineNumber}`);
+          console.log(`Ours: ${ourLine}`);
+          console.log(`Theirs: ${theirsBlock[index]}`);
         }
       });
 
-      // Reset the blocks for next potential conflict
       oursBlock = [];
       theirsBlock = [];
-      continue;  // Skip this line
+      continue;
     }
 
     if (inOursBlock) {
