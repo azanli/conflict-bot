@@ -127,33 +127,50 @@ async function getChangedFiles(octokit, repo, prNumber) {
 
 function extractConflictingLineNumbers(filePath) {
   const fileContent = readFileSync(filePath, "utf8");
-  console.log('fileContent\n', fileContent);
   const lines = fileContent.split("\n");
 
-  let inConflict = false;
-  let lineCounter = 1;
+  let lineCounter = 0;
   const conflictLines = [];
+  let oursBlock = [];
+  let theirsBlock = [];
+  let inOursBlock = false;
+  let inTheirsBlock = false;
 
   for (const line of lines) {
+    lineCounter++;
+
     if (line.startsWith("<<<<<<< HEAD")) {
-      inConflict = true;  // Start collecting conflicted lines
+      inOursBlock = true;
       continue;  // Skip this line
     }
 
     if (line.startsWith("=======")) {
-      inConflict = false;  // Stop collecting conflicted lines
+      inOursBlock = false;
+      inTheirsBlock = true;
       continue;  // Skip this line
     }
 
     if (line.startsWith(">>>>>>>")) {
+      inTheirsBlock = false;
+
+      // Compare oursBlock and theirsBlock here to determine which lines actually differ
+      oursBlock.forEach((ourLine, index) => {
+        if (theirsBlock[index] !== undefined && ourLine !== theirsBlock[index]) {
+          conflictLines.push(lineCounter - oursBlock.length + index);
+        }
+      });
+
+      // Reset the blocks for next potential conflict
+      oursBlock = [];
+      theirsBlock = [];
       continue;  // Skip this line
     }
 
-    if (inConflict) {
-      conflictLines.push(lineCounter);
+    if (inOursBlock) {
+      oursBlock.push(line);
+    } else if (inTheirsBlock) {
+      theirsBlock.push(line);
     }
-
-    lineCounter++;  // Now we increment lineCounter
   }
 
   return conflictLines;
