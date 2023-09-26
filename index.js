@@ -124,41 +124,74 @@ async function getChangedFiles(octokit, repo, prNumber) {
 
   return files.map((file) => file.filename);
 }
-
 function extractConflictingLineNumbers(filePath) {
   const fileContent = readFileSync(filePath, "utf8");
-
   const lines = fileContent.split("\n");
 
-  let inConflict = false;
+  console.log(`Total lines processed: ${lines.length}`);
+  console.log(lines.slice(320).join("\n"));
+
   let lineCounter = 0;
   const conflictLines = [];
+  let oursBlock = [];
+  let theirsBlock = [];
+  let inOursBlock = false;
+  let inTheirsBlock = false;
+  let conflictStartLine = 0;
 
   for (const line of lines) {
-    lineCounter++; // keep track of the line number
+    if (!inOursBlock && !inTheirsBlock) {
+      lineCounter++;  // Increment only outside of conflict blocks.
+    }
 
-    if (line.startsWith("<<<<<<<")) {
-      inConflict = false; // Turn off inConflict for "ours"
+    if (line.startsWith("<<<<<<< HEAD")) {
+      inOursBlock = true;
+      conflictStartLine = lineCounter;
+      console.log(`Conflict started at line: ${conflictStartLine}`);
       continue;
     }
 
-    if (line.startsWith("=======") && !inConflict) {
-      inConflict = true; // Turn on inConflict for "theirs"
+    if (line.startsWith("=======")) {
+      inOursBlock = false;
+      inTheirsBlock = true;
+      console.log(`Switching to THEIRS block at line: ${lineCounter}`);
       continue;
     }
 
     if (line.startsWith(">>>>>>>")) {
-      inConflict = false;
+      inTheirsBlock = false;
+      console.log(`Conflict end detected at line: ${lineCounter}`);
+      console.log('Comparing Ours and Theirs Block');
+      console.log('Ours Block:', oursBlock);
+      console.log('Theirs Block:', theirsBlock);
+
+      oursBlock.forEach((ourLine, index) => {
+        if (theirsBlock[index] !== undefined && ourLine !== theirsBlock[index]) {
+          const actualLineNumber = conflictStartLine + index; 
+          conflictLines.push(actualLineNumber);
+          console.log(`Conflict detected at line: ${actualLineNumber}`);
+          console.log(`Ours: ${ourLine}`);
+          console.log(`Theirs: ${theirsBlock[index]}`);
+        }
+      });
+
+      oursBlock = [];
+      theirsBlock = [];
       continue;
     }
 
-    if (inConflict) {
-      conflictLines.push(lineCounter);
+    if (inOursBlock) {
+      oursBlock.push(line);
+    } else if (inTheirsBlock) {
+      theirsBlock.push(line);
     }
   }
 
   return conflictLines;
 }
+
+
+
 
 async function attemptMerge(pr1, pr2) {
   const conflictData = {};
@@ -172,10 +205,20 @@ async function attemptMerge(pr1, pr2) {
     execSync(`git fetch origin ${pr1}:refs/remotes/origin/tmp_${pr1}`);
     execSync(`git fetch origin ${pr2}:refs/remotes/origin/tmp_${pr2}`);
 
+    // Fetch the main branch
+    execSync(`git fetch origin main:main`);
+    
+    // Merge main into PR1 in memory
     execSync(`git checkout refs/remotes/origin/tmp_${pr1}`);
+    execSync(`git merge main --no-commit --no-ff`);
 
+    // Merge main into PR2 in memory
+    execSync(`git checkout refs/remotes/origin/tmp_${pr2}`);
+    execSync(`git merge main --no-commit --no-ff`);
+
+    // Attempt to merge PR2's branch into PR1 in memory without committing or fast-forwarding
+    execSync(`git checkout refs/remotes/origin/tmp_${pr1}`);
     try {
-      // Attempt to merge PR2's branch in memory without committing or fast-forwarding
       execSync(`git merge refs/remotes/origin/tmp_${pr2} --no-commit --no-ff`);
       console.log("Merge successful");
     } catch (mergeError) {
@@ -217,9 +260,19 @@ async function createConflictComment({
       conflictMessage += `  <summary><strong>Author:</strong> @${data.user} - <strong>PR:</strong> #${data.number}</summary>\n`;
 
       for (const [fileName, lineNumbers] of Object.entries(data.conflictData)) {
-        conflictMessage += `  - <strong>${fileName}:</strong> Lines ${lineNumbers.join(
-          ", "
-        )}\n`;
+        const { data: files } = await octokit.rest.pulls.listFiles({
+          owner: repo.owner,
+          repo: repo.repo,
+          pull_number: data.number,
+        });
+
+        const blobUrl = files.find(
+          (file) => file.filename === fileName
+        ).blob_url;
+
+        conflictMessage += `  - <strong><a href="${blobUrl}">${fileName}</a>:</strong> ${
+          lineNumbers.length > 1 ? "Lines" : "Line"
+        } ${lineNumbers.join(", ")}<br />`;
       }
 
       conflictMessage += `</details>\n\n`;
@@ -236,6 +289,7 @@ async function createConflictComment({
     throw error;
   }
 }
+
 
 async function requestReviews({
   octokit,
