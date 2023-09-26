@@ -248,7 +248,7 @@ async function createConflictComment({
       for (const [fileName, lineNumbers] of Object.entries(data.conflictData)) {
         conflictMessage += `  - <strong>${fileName}:</strong> ${lineNumbers.length > 1 ? 'Lines' : 'Line'} ${lineNumbers.join(
           ", "
-        )}\n`;
+        )}<br />`;
       }
 
       conflictMessage += `</details>\n\n`;
