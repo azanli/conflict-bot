@@ -165,7 +165,7 @@ function extractConflictingLineNumbers(filePath) {
 
       oursBlock.forEach((ourLine, index) => {
         if (theirsBlock[index] !== undefined && ourLine !== theirsBlock[index]) {
-          const actualLineNumber = conflictStartLine + index + 1; 
+          const actualLineNumber = conflictStartLine + index; 
           conflictLines.push(actualLineNumber);
           console.log(`Conflict detected at line: ${actualLineNumber}`);
           console.log(`Ours: ${ourLine}`);
