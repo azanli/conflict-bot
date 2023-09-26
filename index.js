@@ -137,28 +137,26 @@ function extractConflictingLineNumbers(filePath) {
   for (const line of lines) {
     lineCounter++; // keep track of the line number
 
-    if (line.startsWith("<<<<<<<")) {
+    if (line.startsWith("<<<<<<< HEAD")) {
       inConflict = true; // Turn on inConflict for "ours"
-      conflictLines.push(lineCounter);
-      continue;
-    }
-
-    if (line.startsWith("=======")) {
-      continue;
-    }
-
-    if (line.startsWith(">>>>>>>")) {
-      inConflict = false;
-      continue;
     }
 
     if (inConflict) {
       conflictLines.push(lineCounter);
     }
+
+    if (line.startsWith("=======")) {
+      inConflict = true; // Continue collecting for "theirs"
+    }
+
+    if (line.startsWith(">>>>>>>")) {
+      inConflict = false;
+    }
   }
 
   return conflictLines;
 }
+
 
 async function attemptMerge(pr1, pr2) {
   const conflictData = {};
