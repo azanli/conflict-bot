@@ -1,6 +1,6 @@
 ## Conflict-Bot: Your PR Conflict Detector
 
-Conflict-Bot is a GitHub Action designed to help maintain a smooth and efficient code integration process within your repository. Whenever a new pull request is opened, Conflict-Bot jumps into action to check if the lines of files changed in the new pull request correspond with lines changed in other open pull requests. If a conflict is detected, the bot helps foster collaboration by creating a comment on the conflicting pull requests, referencing the conflicting lines and PR numbers, and suggesting the authors to review each other's changes.
+Conflict-Bot is a GitHub Action designed to help maintain a smooth and efficient code integration process within your repository. Whenever a new pull request is opened, Conflict-Bot jumps into action to check if the lines of files changed in the new pull request correspond with lines changed in other open pull requests. If a conflict is detected, the bot helps foster collaboration by creating a comment on the pull request, referencing the conflicting lines, authors, and PR numbers, and suggesting the authors to review each other's changes.
 
 ### Getting Started
 
@@ -8,11 +8,17 @@ Conflict-Bot is a GitHub Action designed to help maintain a smooth and efficient
 
 A GitHub repository where you intend to use Conflict-Bot.
 Necessary permissions to add a GitHub Action to the repository.
-Node.js (version 14 or higher is recommended).
+A fine-grained GitHub access token with the following permissions:
+
+- Actions (read-only)
+- Commit statuses (read-only)
+- Contents (read-only)
+- Metadata (read-only)
+- Pull Requests (read and write)
 
 #### Setting Up
 
-Create a Personal Access Token: Generate a personal access token with the necessary permissions (Actions (read-only), Commit statuses (read-only), Contents (read-only), Metadata (read-only), Pull Requests (read and write)) to enable Conflict-Bot to interact with your repository.
+Create a Personal Access Token: Generate a personal access token with the necessary permissions to enable Conflict-Bot to interact with your repository.
 
 Add the Action to Your Repository: Create a new workflow file (.yml) in the .github/workflows directory of your repository and add the configuration for Conflict-Bot.
 
@@ -35,18 +41,8 @@ jobs:
       - name: Run PR Conflict Checker
         uses: Friendly-Robot/conflict-bot@main
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.CONFLICT_BOT_ACCESS_TOKEN }}
 ```
-
-Initialize and Set Up Conflict-Bot: Clone the Conflict-Bot repository and navigate to the root directory. Run npm install to install the necessary dependencies.
-
-### How Conflict-Bot Works
-
-Conflict-Bot monitors your repository for newly opened or updated pull requests.
-When triggered, it fetches the list of files and lines changed in the new pull request.
-It then compares these changes with changes in other open pull requests to detect any conflicts.
-If conflicts are detected, it comments on the conflicting pull requests, referencing the conflicting lines and PR numbers, and suggesting the authors review each other's changes.
-It facilitates collaboration by assigning the authors of the conflicting PRs to review each other's changes.
 
 ### Contributing
 
