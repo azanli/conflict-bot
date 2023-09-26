@@ -2,7 +2,7 @@ name: "Conflict-Bottom"
 description: "Check for conflicts against other open PRs"
 inputs:
   github-token:
-    description: "GitHub token"
+    description: "GitHub toke"
     required: true
 runs:
   using: "node12"
