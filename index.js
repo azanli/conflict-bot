@@ -135,12 +135,14 @@ function extractConflictingLineNumbers(filePath) {
   let theirsBlock = [];
   let inOursBlock = false;
   let inTheirsBlock = false;
+  let conflictStartLine = 0;
 
   for (const line of lines) {
     lineCounter++;
 
     if (line.startsWith("<<<<<<< HEAD")) {
       inOursBlock = true;
+      conflictStartLine = lineCounter;  // Remember where the conflict started
       continue;  // Skip this line
     }
 
@@ -156,7 +158,7 @@ function extractConflictingLineNumbers(filePath) {
       // Compare oursBlock and theirsBlock here to determine which lines actually differ
       oursBlock.forEach((ourLine, index) => {
         if (theirsBlock[index] !== undefined && ourLine !== theirsBlock[index]) {
-          conflictLines.push(lineCounter - oursBlock.length + index);
+          conflictLines.push(conflictStartLine + index);  // Adjust line number based on start of conflict
         }
       });
 
@@ -175,7 +177,6 @@ function extractConflictingLineNumbers(filePath) {
 
   return conflictLines;
 }
-
 
 
 async function attemptMerge(pr1, pr2) {
