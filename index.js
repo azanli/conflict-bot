@@ -260,13 +260,13 @@ async function createConflictComment({
       conflictMessage += `  <summary><strong>Author:</strong> @${data.user} - <strong>PR:</strong> #${data.number}</summary>\n`;
 
       for (const [fileName, lineNumbers] of Object.entries(data.conflictData)) {
-        const pr = await octokit.rest.pulls.get({
+        const { data: pr } = await octokit.rest.pulls.get({
           owner: repo.owner,
           repo: repo.repo,
           pull_number: data.number,
         });
-
-        const fileSha = pr.data.files.find(
+        console.log('PRr', pr)
+        const fileSha = pr.files.find(
           (file) => file.filename === fileName
         ).sha;
         const url = `https://github.com/${repo.owner}/${repo.repo}/pull/${issue.number}/files#diff-${fileSha}`;
