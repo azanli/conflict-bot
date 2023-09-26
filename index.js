@@ -269,7 +269,7 @@ async function createConflictComment({
         const fileSha = files.find(
           (file) => file.filename === fileName
         ).sha;
-        const url = `https://github.com/${repo.owner}/${repo.repo}/pull/${issue.number}/files#diff-${fileSha}`;
+        const url = `https://github.com/${repo.owner}/${repo.repo}/pull/${prNumber}/files#diff-${fileSha}`;
 
         conflictMessage += `  - <strong>[${fileName}](${url}):</strong> ${
           lineNumbers.length > 1 ? "Lines" : "Line"
