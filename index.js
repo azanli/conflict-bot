@@ -1,5 +1,7 @@
 const core = require("@actions/core");
 const github = require("@actions/github");
+const { execSync } = require("child_process");
+const readFileSync = require("fs").readFileSync;
 
 async function run() {
   try {
@@ -9,11 +11,6 @@ async function run() {
     const pullRequest = github.context.payload.pull_request;
     const repo = github.context.repo;
 
-    const changedFilesData = await getChangedFilesData({
-      octokit,
-      repo,
-      prNumber: pullRequest.number,
-    });
     const openPullRequests = await getOpenPullRequests(octokit, repo);
     const otherOpenPullRequests = openPullRequests.filter(
       (pr) => pr.number !== pullRequest.number
@@ -22,22 +19,18 @@ async function run() {
     let conflictArray = [];
 
     for (const openPullRequest of otherOpenPullRequests) {
-      const openPRChangedFilesData = await getChangedFilesData({
+      const conflictData = await checkForConflicts({
         octokit,
         repo,
-        prNumber: openPullRequest.number,
+        pr1Number: pullRequest.number,
+        pr2Number: openPullRequest.number,
       });
 
-      const conflictInfo = checkForConflicts(
-        changedFilesData,
-        openPRChangedFilesData
-      );
-
-      if (conflictInfo.hasConflict) {
+      if (Object.keys(conflictData).length > 0) {
         conflictArray.push({
           number: openPullRequest.number,
           user: openPullRequest.user.login,
-          conflicts: conflictInfo.conflicts,
+          conflictData,
         });
       }
     }
@@ -68,70 +61,6 @@ async function run() {
   }
 }
 
-async function getChangedFilesData({ octokit, repo, prNumber }) {
-  try {
-    // Fetch the list of files changed in the PR
-    const { data: files } = await octokit.rest.pulls.listFiles({
-      owner: repo.owner,
-      repo: repo.repo,
-      pull_number: prNumber,
-    });
-
-    // Initialize an object to store file paths and the lines changed
-    let changedFilesData = {};
-
-    for (const file of files) {
-      // Get the patch text which contains info about the lines changed
-      const patchText = file.patch;
-
-      // Check if patch text is available (it might not be for binary files)
-      if (patchText) {
-        // Parse the patch text to get the changed lines
-        const changedLines = parsePatchText(patchText);
-
-        // Add the file path and changed lines to the data structure
-        changedFilesData[file.filename] = changedLines;
-      }
-    }
-
-    return changedFilesData;
-  } catch (error) {
-    console.error(`Error fetching changed files data: ${error.message}`);
-    throw error;
-  }
-}
-
-function parsePatchText(patchText) {
-  let changedLines = [];
-  const lines = patchText.split("\n");
-
-  let currentOriginalLineNumber = 0;
-
-  for (const line of lines) {
-    // Capture the start line number of the new hunk
-    const lineNumberMatch = line.match(/@@ -(\d+),\d+ \+\d+,\d+ @@/);
-    if (lineNumberMatch) {
-      currentOriginalLineNumber = parseInt(lineNumberMatch[1], 10) - 1;
-      continue;
-    }
-
-    // If the line is a deletion or unchanged, increment the original line number
-    if (
-      line.startsWith("-") ||
-      (!line.startsWith("-") && !line.startsWith("+"))
-    ) {
-      currentOriginalLineNumber++;
-    }
-
-    // If the line is an addition or a modification, add the current line number to the changed lines
-    if (line.startsWith("+") && !line.startsWith("+++")) {
-      changedLines.push(currentOriginalLineNumber);
-    }
-  }
-
-  return Array.from(new Set(changedLines));
-}
-
 async function getOpenPullRequests(octokit, repo) {
   try {
     const { data: pullRequests } = await octokit.rest.pulls.list({
@@ -154,36 +83,154 @@ async function getOpenPullRequests(octokit, repo) {
   }
 }
 
-function checkForConflicts(changedFilesData, openPRChangedFilesData) {
-  let conflictInfo = {
-    hasConflict: false,
-    conflicts: [],
-  };
+async function checkForConflicts({ octokit, repo, pr1Number, pr2Number }) {
+  const pr1Branch = await getBranchName(octokit, repo, pr1Number);
+  const pr2Branch = await getBranchName(octokit, repo, pr2Number);
 
-  // Iterate through each file in changedFilesData
-  for (const [filePath, changedLines] of Object.entries(changedFilesData)) {
-    // Check if the file is also present in openPRChangedFilesData
-    if (openPRChangedFilesData.hasOwnProperty(filePath)) {
-      // Get the lines changed in the open PR for the same file
-      const openPRChangedLines = openPRChangedFilesData[filePath];
+  if (!pr1Branch || !pr2Branch) {
+    throw new Error("Failed to fetch branch name for one or both PRs.");
+  }
 
-      // Check for overlapping line changes
-      const overlappingLines = changedLines.filter((line) =>
-        openPRChangedLines.includes(line)
-      );
+  const pr1Files = await getChangedFiles(octokit, repo, pr1Number);
+  const pr2Files = await getChangedFiles(octokit, repo, pr2Number);
 
-      if (overlappingLines.length > 0) {
-        // If there are any overlapping lines, add this to the conflict info
-        conflictInfo.hasConflict = true;
-        conflictInfo.conflicts.push({
-          file: filePath,
-          lines: overlappingLines,
-        });
-      }
+  const overlappingFiles = pr1Files.filter((file) => pr2Files.includes(file));
+
+  if (!overlappingFiles.length) {
+    return [];
+  }
+
+  const conflictData = await attemptMerge(pr1Branch, pr2Branch);
+
+  return conflictData;
+}
+
+async function getBranchName(octokit, repo, prNumber) {
+  const { data: pr } = await octokit.rest.pulls.get({
+    owner: repo.owner,
+    repo: repo.repo,
+    pull_number: prNumber,
+  });
+
+  return pr.head.ref;
+}
+
+async function getChangedFiles(octokit, repo, prNumber) {
+  const { data: files } = await octokit.rest.pulls.listFiles({
+    owner: repo.owner,
+    repo: repo.repo,
+    pull_number: prNumber,
+  });
+
+  return files.map((file) => file.filename);
+}
+
+function extractConflictingLineNumbers(filePath) {
+  const fileContent = readFileSync(filePath, "utf8");
+  const lines = fileContent.split("\n");
+
+  let lineCounter = 0;
+  const conflictLines = [];
+  let oursBlock = [];
+  let theirsBlock = [];
+  let inOursBlock = false;
+  let inTheirsBlock = false;
+  let conflictStartLine = 0;
+
+  for (const line of lines) {
+    if (!inOursBlock && !inTheirsBlock) {
+      lineCounter++; // Increment only outside of conflict blocks.
+    }
+
+    if (line.startsWith("<<<<<<< HEAD")) {
+      inOursBlock = true;
+      conflictStartLine = lineCounter;
+      continue;
+    }
+
+    if (line.startsWith("=======")) {
+      inOursBlock = false;
+      inTheirsBlock = true;
+      continue;
+    }
+
+    if (line.startsWith(">>>>>>>")) {
+      inTheirsBlock = false;
+
+      oursBlock.forEach((ourLine, index) => {
+        if (
+          theirsBlock[index] !== undefined &&
+          ourLine !== theirsBlock[index]
+        ) {
+          const actualLineNumber = conflictStartLine + index;
+          conflictLines.push(actualLineNumber);
+        }
+      });
+
+      oursBlock = [];
+      theirsBlock = [];
+      continue;
+    }
+
+    if (inOursBlock) {
+      oursBlock.push(line);
+    } else if (inTheirsBlock) {
+      theirsBlock.push(line);
     }
   }
 
-  return conflictInfo;
+  return conflictLines;
+}
+
+async function attemptMerge(pr1, pr2) {
+  const conflictData = {};
+
+  try {
+    // Configure Git with a dummy user identity
+    execSync(`git config user.email "action@github.com"`);
+    execSync(`git config user.name "GitHub Action"`);
+
+    execSync(`git fetch origin main:main`);
+
+    // Fetch PR branches into temporary refs
+    execSync(`git fetch origin ${pr1}:refs/remotes/origin/tmp_${pr1}`);
+    execSync(`git fetch origin ${pr2}:refs/remotes/origin/tmp_${pr2}`);
+
+    // Merge main into PR1 in memory
+    execSync(`git checkout refs/remotes/origin/tmp_${pr1}`);
+    execSync(`git merge main --no-commit --no-ff`);
+
+    // Merge main into PR2 in memory
+    execSync(`git checkout refs/remotes/origin/tmp_${pr2}`);
+    execSync(`git merge main --no-commit --no-ff`);
+
+    try {
+      // Attempt to merge PR2's branch in memory without committing or fast-forwarding
+      execSync(`git merge refs/remotes/origin/tmp_${pr2} --no-commit --no-ff`);
+      console.log("Merge successful");
+    } catch (mergeError) {
+      const stdoutStr = mergeError.stdout.toString();
+      if (stdoutStr.includes("Automatic merge failed")) {
+        const output = execSync(
+          "git diff --name-only --diff-filter=U"
+        ).toString();
+        const conflictFileNames = output.split("\n").filter(Boolean);
+
+        for (const filename of conflictFileNames) {
+          conflictData[filename] = extractConflictingLineNumbers(filename);
+        }
+      }
+    }
+  } catch (error) {
+    console.error(`Error during merge process: ${error.message}`);
+  } finally {
+    execSync(`git reset --hard HEAD`); // Reset any changes
+    // Cleanup by deleting temporary refs
+    execSync(`git update-ref -d refs/remotes/origin/tmp_${pr1}`);
+    execSync(`git update-ref -d refs/remotes/origin/tmp_${pr2}`);
+  }
+
+  return conflictData;
 }
 
 async function createConflictComment({
@@ -195,15 +242,28 @@ async function createConflictComment({
   try {
     let conflictMessage = "### Conflicts Found\n\n";
 
-    conflictArray.forEach((conflict) => {
+    for (const data of conflictArray) {
       conflictMessage += `<details>\n`;
-      conflictMessage += `  <summary><strong>Author:</strong> ${conflict.author} - <strong>PR:</strong> #${conflict.prNumber}</summary>\n`;
-      conflictMessage += `  <p><strong>File:</strong> ${conflict.file}</p>\n`;
-      conflictMessage += `  <p><strong>Lines:</strong> ${conflict.lines.join(
-        ", "
-      )}</p>\n`;
+      conflictMessage += `  <summary><strong>Author:</strong> @${data.user} - <strong>PR:</strong> #${data.number}</summary>\n`;
+
+      for (const [fileName, lineNumbers] of Object.entries(data.conflictData)) {
+        const { data: files } = await octokit.rest.pulls.listFiles({
+          owner: repo.owner,
+          repo: repo.repo,
+          pull_number: data.number,
+        });
+
+        const blobUrl = files.find(
+          (file) => file.filename === fileName
+        ).blob_url;
+
+        conflictMessage += `  - <strong><a href="${blobUrl}">${fileName}</a>:</strong> ${
+          lineNumbers.length > 1 ? "Lines" : "Line"
+        } ${lineNumbers.join(", ")}<br />`;
+      }
+
       conflictMessage += `</details>\n\n`;
-    });
+    }
 
     await octokit.rest.issues.createComment({
       owner: repo.owner,
