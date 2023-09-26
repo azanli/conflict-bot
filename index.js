@@ -127,7 +127,6 @@ async function getChangedFiles(octokit, repo, prNumber) {
 
 function extractConflictingLineNumbers(filePath) {
   const fileContent = readFileSync(filePath, "utf8");
-
   const lines = fileContent.split("\n");
 
   let inConflict = false;
@@ -138,17 +137,16 @@ function extractConflictingLineNumbers(filePath) {
     lineCounter++; // keep track of the line number
 
     if (line.startsWith("<<<<<<< HEAD")) {
-      inConflict = true;  // Turn on inConflict for "ours"
+      inConflict = true;  // Start collecting conflicted lines
       continue;  // Skip this line
     }
 
     if (line.startsWith("=======")) {
-      inConflict = false;  // Temporarily turn off inConflict to skip "ours" end marker
+      inConflict = false;  // Stop collecting conflicted lines
       continue;  // Skip this line
     }
 
     if (line.startsWith(">>>>>>>")) {
-      inConflict = false;  // Turn off inConflict for "theirs"
       continue;  // Skip this line
     }
 
@@ -159,7 +157,6 @@ function extractConflictingLineNumbers(filePath) {
 
   return conflictLines;
 }
-
 
 
 async function attemptMerge(pr1, pr2) {
