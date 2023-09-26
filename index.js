@@ -134,8 +134,6 @@ function extractConflictingLineNumbers(filePath) {
   const conflictLines = [];
 
   for (const line of lines) {
-    lineCounter++; // keep track of the line number
-
     if (line.startsWith("<<<<<<< HEAD")) {
       inConflict = true;  // Start collecting conflicted lines
       continue;  // Skip this line
@@ -150,6 +148,8 @@ function extractConflictingLineNumbers(filePath) {
       continue;  // Skip this line
     }
 
+    lineCounter++;  // Now we increment lineCounter
+
     if (inConflict) {
       conflictLines.push(lineCounter);
     }
@@ -157,6 +157,7 @@ function extractConflictingLineNumbers(filePath) {
 
   return conflictLines;
 }
+
 
 
 async function attemptMerge(pr1, pr2) {
