@@ -272,7 +272,7 @@ async function createConflictComment({
 
         conflictMessage += `  - <strong><a href="${blobUrl}">${fileName}</a>:</strong> ${
           lineNumbers.length > 1 ? "Lines" : "Line"
-        } ${lineNumbers.join(", ")}\n`;
+        } ${lineNumbers.join(", ")}<br />`;
       }
 
       conflictMessage += `</details>\n\n`;
