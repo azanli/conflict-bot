@@ -140,11 +140,13 @@ function extractConflictingLineNumbers(filePath) {
   let conflictStartLine = 0;
 
   for (const line of lines) {
-    lineCounter++;
+    if (!inOursBlock && !inTheirsBlock) {
+      lineCounter++;  // Increment only outside of conflict blocks.
+    }
 
     if (line.startsWith("<<<<<<< HEAD")) {
       inOursBlock = true;
-      conflictStartLine = lineCounter;
+      conflictStartLine = lineCounter + 1;
       console.log(`Conflict started at line: ${conflictStartLine}`);
       continue;
     }
