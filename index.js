@@ -131,7 +131,7 @@ function extractConflictingLineNumbers(filePath) {
   const lines = fileContent.split("\n");
 
   let inConflict = false;
-  let lineCounter = 0;
+  let lineCounter = 1;
   const conflictLines = [];
 
   for (const line of lines) {
@@ -149,11 +149,11 @@ function extractConflictingLineNumbers(filePath) {
       continue;  // Skip this line
     }
 
-    lineCounter++;  // Now we increment lineCounter
-
     if (inConflict) {
       conflictLines.push(lineCounter);
     }
+
+    lineCounter++;  // Now we increment lineCounter
   }
 
   return conflictLines;
