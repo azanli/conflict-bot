@@ -171,11 +171,18 @@ async function attemptMerge(pr1, pr2) {
     // Fetch PR branches into temporary refs
     execSync(`git fetch origin ${pr1}:refs/remotes/origin/tmp_${pr1}`);
     execSync(`git fetch origin ${pr2}:refs/remotes/origin/tmp_${pr2}`);
-
+    
+    // Merge main into PR1 in memory
     execSync(`git checkout refs/remotes/origin/tmp_${pr1}`);
+    execSync(`git merge main --no-commit --no-ff`);
 
+    // Merge main into PR2 in memory
+    execSync(`git checkout refs/remotes/origin/tmp_${pr2}`);
+    execSync(`git merge main --no-commit --no-ff`);
+
+    // Attempt to merge PR2's branch into PR1 in memory without committing or fast-forwarding
+    execSync(`git checkout refs/remotes/origin/tmp_${pr1}`);
     try {
-      // Attempt to merge PR2's branch in memory without committing or fast-forwarding
       execSync(`git merge refs/remotes/origin/tmp_${pr2} --no-commit --no-ff`);
       console.log("Merge successful");
     } catch (mergeError) {
