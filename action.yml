@@ -1,4 +1,4 @@
-name: "Conflict-Bottom"
+name: "Conflict-Bottomlicker"
 description: "Check for conflicts against other open PRs"
 inputs:
   github-token:
