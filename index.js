@@ -4,8 +4,6 @@ const { execSync } = require("child_process");
 const readFileSync = require("fs").readFileSync;
 
 async function run() {
-  let pr1Branch;
-
   try {
     const token = core.getInput("github-token", { required: true });
     const octokit = github.getOctokit(token);
@@ -18,18 +16,13 @@ async function run() {
       (pr) => pr.number !== pullRequest.number
     );
 
-    pr1Branch = await getBranchName(octokit, repo, pullRequest.number);
-    const pr1Files = await getChangedFiles(octokit, repo, pullRequest.number);
-
-    prefetchBranches(pr1Branch);
-
     let conflictArray = [];
 
     for (const openPullRequest of otherOpenPullRequests) {
       const conflictData = await checkForConflicts({
         octokit,
         repo,
-        pr1Files,
+        pr1Number: pullRequest.number,
         pr2Number: openPullRequest.number,
       });
 
@@ -65,42 +58,6 @@ async function run() {
     }
   } catch (error) {
     core.setFailed(error.message);
-  } finally {
-    cleanup(pr1Branch);
-  }
-}
-
-function prefetchBranches(pr1Branch) {
-  if (!pr1Branch) {
-    throw new Error("Failed to fetch branch name for main PR");
-  }
-
-  try {
-    // Configure Git with a dummy user identity
-    execSync(`git config user.email "action@github.com"`);
-    execSync(`git config user.name "GitHub Action"`);
-
-    execSync(`git fetch origin main:main`);
-
-    // Fetch main PR branch into temporary ref
-    execSync(
-      `git fetch origin ${pr1Branch}:refs/remotes/origin/tmp_${pr1Branch}`
-    );
-
-    // Merge main into PR1 in memory
-    execSync(`git checkout refs/remotes/origin/tmp_${pr1Branch}`);
-    execSync(`git merge main --no-commit --no-ff`);
-  } catch (error) {
-    console.error(`Error during prefetch process: ${error.message}`);
-  }
-}
-
-function cleanup(pr1Branch) {
-  try {
-    // Cleanup by deleting temporary ref
-    execSync(`git update-ref -d refs/remotes/origin/tmp_${pr1Branch}`);
-  } catch (error) {
-    console.error(`Error during cleanup process: ${error.message}`);
   }
 }
 
@@ -126,8 +83,15 @@ async function getOpenPullRequests(octokit, repo) {
   }
 }
 
-async function checkForConflicts({ octokit, repo, pr1Files, pr2Number }) {
+async function checkForConflicts({ octokit, repo, pr1Number, pr2Number }) {
+  const pr1Branch = await getBranchName(octokit, repo, pr1Number);
   const pr2Branch = await getBranchName(octokit, repo, pr2Number);
+
+  if (!pr1Branch || !pr2Branch) {
+    throw new Error("Failed to fetch branch name for one or both PRs.");
+  }
+
+  const pr1Files = await getChangedFiles(octokit, repo, pr1Number);
   const pr2Files = await getChangedFiles(octokit, repo, pr2Number);
 
   const overlappingFiles = pr1Files.filter((file) => pr2Files.includes(file));
@@ -136,7 +100,7 @@ async function checkForConflicts({ octokit, repo, pr1Files, pr2Number }) {
     return [];
   }
 
-  const conflictData = await attemptMerge(pr2Branch);
+  const conflictData = await attemptMerge(pr1Branch, pr2Branch);
 
   return conflictData;
 }
@@ -147,12 +111,6 @@ async function getBranchName(octokit, repo, prNumber) {
     repo: repo.repo,
     pull_number: prNumber,
   });
-
-  const branchName = pr.head.ref;
-
-  if (!branchName) {
-    throw new Error(`Failed to fetch branch name for ${prNumber}`);
-  }
 
   return pr.head.ref;
 }
@@ -224,22 +182,32 @@ function extractConflictingLineNumbers(filePath) {
   return conflictLines;
 }
 
-async function attemptMerge(pr2Branch) {
+async function attemptMerge(pr1, pr2) {
   const conflictData = {};
 
   try {
-    // Fetch conflicting PR branch into temporary ref
-    execSync(
-      `git fetch origin ${pr2Branch}:refs/remotes/origin/tmp_${pr2Branch}`
-    );
+    // Configure Git with a dummy user identity
+    execSync(`git config user.email "action@github.com"`);
+    execSync(`git config user.name "GitHub Action"`);
+
+    execSync(`git fetch origin main:main`);
+
+    // Fetch PR branches into temporary refs
+    execSync(`git fetch origin ${pr1}:refs/remotes/origin/tmp_${pr1}`);
+    execSync(`git fetch origin ${pr2}:refs/remotes/origin/tmp_${pr2}`);
+
+    // Merge main into PR1 in memory
+    execSync(`git checkout refs/remotes/origin/tmp_${pr1}`);
+    execSync(`git merge main --no-commit --no-ff`);
 
     // Merge main into PR2 in memory
-    execSync(`git checkout refs/remotes/origin/tmp_${pr2Branch}`);
+    execSync(`git checkout refs/remotes/origin/tmp_${pr2}`);
     execSync(`git merge main --no-commit --no-ff`);
 
     try {
       // Attempt to merge PR2's branch in memory without committing or fast-forwarding
-      execSync(`git merge refs/remotes/origin/tmp_${pr2Branch} --no-commit --no-ff`);
+      execSync(`git merge refs/remotes/origin/tmp_${pr2} --no-commit --no-ff`);
+      console.log("Merge successful");
     } catch (mergeError) {
       const stdoutStr = mergeError.stdout.toString();
       if (stdoutStr.includes("Automatic merge failed")) {
@@ -257,8 +225,9 @@ async function attemptMerge(pr2Branch) {
     console.error(`Error during merge process: ${error.message}`);
   } finally {
     execSync(`git reset --hard HEAD`); // Reset any changes
-    // Cleanup by deleting temporary ref
-    execSync(`git update-ref -d refs/remotes/origin/tmp_${pr2Branch}`);
+    // Cleanup by deleting temporary refs
+    execSync(`git update-ref -d refs/remotes/origin/tmp_${pr1}`);
+    execSync(`git update-ref -d refs/remotes/origin/tmp_${pr2}`);
   }
 
   return conflictData;
