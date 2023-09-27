@@ -3,9 +3,10 @@ const github = require("@actions/github");
 const { execSync } = require("child_process");
 const readFileSync = require("fs").readFileSync;
 
-async function run() {
+async function run2() {
   try {
     const token = core.getInput("github-token", { required: true });
+    const quiet = core.getInput("quiet", { required: false });
     const octokit = github.getOctokit(token);
 
     const pullRequest = github.context.payload.pull_request;
@@ -36,12 +37,14 @@ async function run() {
     }
 
     if (conflictArray.length > 0) {
-      await createConflictComment({
-        octokit,
-        repo,
-        prNumber: pullRequest.number,
-        conflictArray,
-      });
+      if (!quiet) {
+        await createConflictComment({
+          octokit,
+          repo,
+          prNumber: pullRequest.number,
+          conflictArray,
+        });
+      }
       await requestReviews({
         octokit,
         repo,
@@ -331,4 +334,4 @@ async function requestReviewsInConflictingPRs({
   }
 }
 
-run();
+run2();
