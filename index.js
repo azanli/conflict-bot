@@ -250,7 +250,7 @@ async function attemptMerge(pr2Branch) {
         execSync(`git merge main --no-commit --no-ff`, { stdio: 'inherit' });
       } catch (err) {
         console.error("Failed to merge main into PR2:", err.message);
-        console.error(err.stdout?.toString());
+        console.error(err);
         console.error(err.stderr?.toString());
         throw err;
     }
