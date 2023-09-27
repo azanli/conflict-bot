@@ -82,13 +82,14 @@ function prefetchBranches(pr1Branch) {
 
     execSync(`git fetch origin main:main`);
 
-    // Merge main into PR1 in memory
-    execSync(`git checkout refs/remotes/origin/tmp_${pr1Branch}`);
-    execSync(`git merge main --no-commit --no-ff`);
-
+    // Fetch main PR branch into temporary ref
     execSync(
       `git fetch origin ${pr1Branch}:refs/remotes/origin/tmp_${pr1Branch}`
     );
+
+    // Merge main into PR1 in memory
+    execSync(`git checkout refs/remotes/origin/tmp_${pr1Branch}`);
+    execSync(`git merge main --no-commit --no-ff`);
   } catch (error) {
     console.error(`Error during prefetch process: ${error.message}`);
   }
