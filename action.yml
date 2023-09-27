@@ -2,8 +2,11 @@ name: "Conflict-Bot"
 description: "Check for conflicts against other open PRs"
 inputs:
   github-token:
-    description: "GitHub toke"
+    description: "GitHub token"
     required: true
+  quiet:
+    description: "Only request reviews without commenting"
+    required: false
 runs:
   using: "node12"
   main: "index.js"
