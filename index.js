@@ -19,7 +19,7 @@ async function run() {
     );
 
     pr1Branch = await getBranchName(octokit, repo, pullRequest.number);
-    const pr1Files = await getChangedFiles(octokit, repo, pr1Number);
+    const pr1Files = await getChangedFiles(octokit, repo, pullRequest.number);
 
     prefetchBranches(pr1Branch);
 
