@@ -14,7 +14,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v2
         with:
-          node-version: "14"
+          node-version: 14
 
       - name: Install dependencies
         run: npm install
@@ -23,4 +23,5 @@ jobs:
         uses: ./
         with:
           github-token: ${{ secrets.CONFLICT_BOT_ACCESS_TOKEN }}
+          main-branch: main
           quiet: false

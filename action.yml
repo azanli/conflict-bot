@@ -4,9 +4,12 @@ inputs:
   github-token:
     description: "GitHub token"
     required: true
+  main-branch:
+    description: "Name of main branch (defaults to 'main')"
+    required: false
   quiet:
-    description: "Only request reviews without commenting"
+    description: "Only request reviews without commenting (defaults to 'false')"
     required: false
 runs:
-  using: "node12"
-  main: "index.js"
+  using: node12
+  main: index.js
