@@ -6,7 +6,10 @@ const readFileSync = require("fs").readFileSync;
 async function run() {
   try {
     const token = core.getInput("github-token", { required: true });
-    const quiet = core.getInput("quiet", { required: false });
+
+    const quiet = core.getInput("quiet", { required: false }) || "false";
+    const disableComments = ["true", "yes", "on"].includes(quiet.toLowerCase());
+
     const octokit = github.getOctokit(token);
 
     const pullRequest = github.context.payload.pull_request;
@@ -37,7 +40,7 @@ async function run() {
     }
 
     if (conflictArray.length > 0) {
-      if (!quiet) {
+      if (!disableComments) {
         await createConflictComment({
           octokit,
           repo,
@@ -186,6 +189,9 @@ function extractConflictingLineNumbers(filePath) {
 }
 
 async function attemptMerge(pr1, pr2) {
+  const mainBranch =
+    core.getInput("main-branch", { required: false }) || "main";
+
   const conflictData = {};
 
   try {
@@ -193,7 +199,7 @@ async function attemptMerge(pr1, pr2) {
     execSync(`git config user.email "action@github.com"`);
     execSync(`git config user.name "GitHub Action"`);
 
-    execSync(`git fetch origin main:main`);
+    execSync(`git fetch origin ${mainBranch}:${mainBranch}`);
 
     // Fetch PR branches into temporary refs
     execSync(`git fetch origin ${pr1}:refs/remotes/origin/tmp_${pr1}`);
@@ -201,12 +207,12 @@ async function attemptMerge(pr1, pr2) {
 
     // Merge main into PR1 in memory
     execSync(`git checkout refs/remotes/origin/tmp_${pr1}`);
-    execSync(`git merge main --no-commit --no-ff`);
+    execSync(`git merge ${mainBranch} --no-commit --no-ff`);
     execSync(`git reset --hard HEAD`);
 
     // Merge main into PR2 in memory
     execSync(`git checkout refs/remotes/origin/tmp_${pr2}`);
-    execSync(`git merge main --no-commit --no-ff`);
+    execSync(`git merge ${mainBranch} --no-commit --no-ff`);
     execSync(`git reset --hard HEAD`);
 
     execSync(`git checkout refs/remotes/origin/tmp_${pr1}`);
