@@ -1,5 +1,8 @@
 name: "ConflictBot"
 description: "Check for conflicts against other open PRs"
+branding:
+  icon: align-center
+  color: yellow
 inputs:
   github-token:
     description: "GitHub token"
