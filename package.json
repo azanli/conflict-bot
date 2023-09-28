@@ -1,5 +1,5 @@
 {
-  "name": "conflict-bot",
+  "name": "ConflictBot",
   "version": "0.0.1",
   "description": "Github action for tracking conflicts between open pull requests",
   "main": "index.js",
@@ -8,7 +8,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Friendly-Robot/conflict-bot.git"
+    "url": "git+https://github.com/ConflictBot/ConflictBot.git"
   },
   "keywords": [
     "github",
@@ -18,12 +18,12 @@
     "conflict",
     "bot"
   ],
-  "author": "friendly-robot",
+  "author": "ConflictBot",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/Friendly-Robot/conflict-bot/issues"
+    "url": "https://github.com/ConflictBot/ConflictBot/issues"
   },
-  "homepage": "https://github.com/Friendly-Robot/conflict-bot#readme",
+  "homepage": "https://github.com/ConflictBot/ConflictBot#readme",
   "dependencies": {
     "@actions/core": "^1.10.1",
     "@actions/github": "^5.1.1",

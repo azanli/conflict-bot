@@ -1,4 +1,4 @@
-name: Conflict-Bot Test
+name: ConflictBot Test
 
 on:
   pull_request:
@@ -19,7 +19,7 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Run Conflict-Bot
+      - name: Run ConflictBot
         uses: ./
         with:
           github-token: ${{ secrets.CONFLICT_BOT_ACCESS_TOKEN }}
