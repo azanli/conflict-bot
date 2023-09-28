@@ -46,6 +46,8 @@ jobs:
         uses: Friendly-Robot/conflict-bot@main
         with:
           github-token: ${{ secrets.CONFLICT_BOT_ACCESS_TOKEN }}
+          main-branch: main
+          quiet: true
 ```
 
 ### Contributing
