@@ -3,6 +3,8 @@ const github = require("@actions/github");
 const { execSync } = require("child_process");
 const readFileSync = require("fs").readFileSync;
 
+const { formatLineNumbers } = require("./index.utils");
+
 async function run() {
   try {
     const token = core.getInput("github-token", { required: true });
@@ -257,7 +259,7 @@ async function createConflictComment({
 
     for (const data of conflictArray) {
       conflictMessage += `<details>\n`;
-      conflictMessage += `  <summary><strong>Author:</strong> @${data.user} - <strong>PR:</strong> #${data.number}</summary>\n`;
+      conflictMessage += `  <summary><strong>Pull Request #${data.number}</strong></summary>\n`;
 
       for (const [fileName, lineNumbers] of Object.entries(data.conflictData)) {
         const { data: files } = await octokit.rest.pulls.listFiles({
@@ -270,9 +272,9 @@ async function createConflictComment({
           (file) => file.filename === fileName
         ).blob_url;
 
-        conflictMessage += `  - <strong><a href="${blobUrl}">${fileName}</a>:</strong> ${
-          lineNumbers.length > 1 ? "Lines" : "Line"
-        } ${lineNumbers.join(", ")}<br />`;
+        conflictMessage += `\u00A0\u00A0\u00A0 <strong><a href="${blobUrl}">${fileName}</a> \u2015 </strong> ${formatLineNumbers(
+          lineNumbers
+        )}<br />`;
       }
 
       conflictMessage += `</details>\n\n`;
