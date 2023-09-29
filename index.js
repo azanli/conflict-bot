@@ -166,6 +166,8 @@ function extractConflictingLineNumbers(filePath) {
       inTheirsBlock = false;
 
       oursBlock.forEach((ourLine, index) => {
+        // Some lines in the conflict blocks are not actually conflicts
+        // so this compares for inequality before adding the line + index to the array
         if (
           theirsBlock[index] !== undefined &&
           ourLine !== theirsBlock[index]
