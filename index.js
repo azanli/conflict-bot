@@ -272,6 +272,7 @@ async function attemptMerge(otherPullRequestName) {
   const variables = new Variables();
   const mainBranch = variables.get("mainBranch");
   const pullRequestName = variables.get("pullRequestName");
+  const quiet = variables.get("quiet");
 
   const conflictData = {};
 
@@ -299,6 +300,12 @@ async function attemptMerge(otherPullRequestName) {
     } catch (mergeError) {
       const stdoutStr = mergeError.stdout.toString();
       if (stdoutStr.includes("Automatic merge failed")) {
+        if (quiet) {
+          return {
+            0: "Extracting data is unnecessary if commenting is disabled.",
+          };
+        }
+
         const output = execSync(
           "git diff --name-only --diff-filter=U"
         ).toString();
