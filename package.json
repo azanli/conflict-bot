@@ -16,7 +16,10 @@
     "pull",
     "request",
     "conflict",
-    "bot"
+    "bot",
+    "code",
+    "review",
+    "quality"
   ],
   "author": "ConflictBot",
   "license": "MIT",
