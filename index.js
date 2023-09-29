@@ -217,61 +217,51 @@ async function getChangedFiles(anyPullRequestNumber) {
   return files.map((file) => file.filename);
 }
 
-function extractConflictingLineNumbers(filePath) {
-  const fileContent = readFileSync(filePath, "utf8");
-  const lines = fileContent.split("\n");
+function extractConflictingLineNumbers(otherPullRequestName, filePath) {
+  const fileContentWithoutConflicts = execSync(
+    `git show origin/${otherPullRequestName}:${filePath}`
+  ).toString();
+  const linesFromNormalFile = fileContentWithoutConflicts.split("\n");
 
-  let lineCounter = 0;
+  const fileContentWithConflicts = readFileSync(filePath, "utf8");
+  const linesFromConflictFile = fileContentWithConflicts.split("\n");
+
   const conflictLines = [];
   let oursBlock = [];
-  let theirsBlock = [];
   let inOursBlock = false;
-  let inTheirsBlock = false;
-  let conflictStartLine = 0;
 
-  for (const line of lines) {
-    if (!inOursBlock && !inTheirsBlock) {
-      lineCounter++; // Increment only outside of conflict blocks.
-    }
-
-    debug(lineCounter, line);
-
-    if (line.startsWith("<<<<<<< HEAD")) {
+  for (const lineFromConflictFile of linesFromConflictFile) {
+    if (lineFromConflictFile.startsWith("<<<<<<< HEAD")) {
       inOursBlock = true;
-      conflictStartLine = lineCounter;
-      continue;
-    }
-
-    if (line.startsWith("=======")) {
-      inOursBlock = false;
-      inTheirsBlock = true;
-      continue;
-    }
-
-    if (line.startsWith(">>>>>>>")) {
-      inTheirsBlock = false;
-
-      oursBlock.forEach((ourLine, index) => {
-        if (
-          theirsBlock[index] !== undefined &&
-          ourLine !== theirsBlock[index]
-        ) {
-          const actualLineNumber = conflictStartLine + index;
-          conflictLines.push(actualLineNumber);
-        }
-      });
-
       oursBlock = [];
-      theirsBlock = [];
+      continue;
+    }
 
-      lineCounter += theirsBlock.length;
+    if (lineFromConflictFile.startsWith("=======")) {
+      inOursBlock = false;
+      const startIndex = linesFromNormalFile.indexOf(oursBlock[0]);
+      if (startIndex !== -1) {
+        // Verify that the block matches
+        const doesMatch = oursBlock.every(
+          (ourLine, index) =>
+            ourLine === linesFromNormalFile[startIndex + index]
+        );
+        if (doesMatch) {
+          for (let i = 0; i < oursBlock.length; i++) {
+            conflictLines.push(startIndex + i + 1); // +1 for 1-indexed line numbers
+          }
+        }
+      }
+      continue;
+    }
+
+    if (lineFromConflictFile.startsWith(">>>>>>>")) {
+      oursBlock = [];
       continue;
     }
 
     if (inOursBlock) {
-      oursBlock.push(line);
-    } else if (inTheirsBlock) {
-      theirsBlock.push(line);
+      oursBlock.push(lineFromConflictFile);
     }
   }
 
@@ -299,12 +289,10 @@ async function attemptMerge(otherPullRequestName) {
     execSync(`git merge ${mainBranch} --no-commit --no-ff`);
     execSync(`git reset --hard HEAD`);
 
-    execSync(`git checkout refs/remotes/origin/tmp_${pullRequestName}`);
-
     try {
       // Attempt to merge other pull request branch in memory without committing or fast-forwarding
       execSync(
-        `git merge refs/remotes/origin/tmp_${otherPullRequestName} --no-commit --no-ff`
+        `git merge refs/remotes/origin/tmp_${pullRequestName} --no-commit --no-ff`
       );
 
       debug(`${otherPullRequestName} merge successful. No conflicts found.`);
@@ -318,7 +306,10 @@ async function attemptMerge(otherPullRequestName) {
 
         for (const filename of conflictFileNames) {
           debug(`Extracting conflicting line numbers for ${filename}`);
-          conflictData[filename] = extractConflictingLineNumbers(filename);
+          conflictData[filename] = extractConflictingLineNumbers(
+            otherPullRequestName,
+            filename
+          );
         }
       }
     }
@@ -342,11 +333,11 @@ async function createConflictComment(conflictArray) {
   const repo = variables.get("repo");
 
   try {
-    let conflictMessage = "### 🤖 Merge Issues Detected\n\n";
+    let conflictMessage = "🤖 Merge Issues Detected\n\n";
 
     for (const data of conflictArray) {
       conflictMessage += `<details>\n`;
-      conflictMessage += `  <summary><strong>Pull Request #${data.number}</strong></summary>\n`;
+      conflictMessage += `  <summary>Pull Request #${data.number}</summary>\n`;
 
       for (const [fileName, lineNumbers] of Object.entries(data.conflictData)) {
         const { data: files } = await octokit.rest.pulls.listFiles({
@@ -359,7 +350,7 @@ async function createConflictComment(conflictArray) {
           (file) => file.filename === fileName
         ).blob_url;
 
-        conflictMessage += `\u00A0\u00A0\u00A0 <strong><a href="${blobUrl}">${fileName}</a> \u2015 </strong> ${formatLineNumbers(
+        conflictMessage += `\u00A0\u00A0\u00A0 <a href="${blobUrl}">${fileName}</a> \u2015 ${formatLineNumbers(
           lineNumbers
         )}<br />`;
       }
