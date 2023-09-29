@@ -3,7 +3,7 @@ const github = require("@actions/github");
 const { execSync } = require("child_process");
 const readFileSync = require("fs").readFileSync;
 
-const { formatLineNumbers } = require("./index.utils");
+const { debug, formatLineNumbers } = require("./index.utils");
 
 async function run() {
   try {
@@ -150,6 +150,8 @@ function extractConflictingLineNumbers(filePath) {
       lineCounter++; // Increment only outside of conflict blocks.
     }
 
+    // debug(lineNumber, line);
+
     if (line.startsWith("<<<<<<< HEAD")) {
       inOursBlock = true;
       conflictStartLine = lineCounter;
@@ -199,6 +201,8 @@ async function attemptMerge(pr1, pr2) {
   const conflictData = {};
 
   try {
+    debug(`Attempting to merge #${pr2} into #${pr1}`);
+
     // Configure Git with a dummy user identity
     execSync(`git config user.email "action@github.com"`);
     execSync(`git config user.name "GitHub Action"`);
@@ -224,7 +228,7 @@ async function attemptMerge(pr1, pr2) {
     try {
       // Attempt to merge PR2's branch in memory without committing or fast-forwarding
       execSync(`git merge refs/remotes/origin/tmp_${pr2} --no-commit --no-ff`);
-      console.log("Merge successful");
+      debug("Merge successful");
     } catch (mergeError) {
       const stdoutStr = mergeError.stdout.toString();
       if (stdoutStr.includes("Automatic merge failed")) {
@@ -234,6 +238,7 @@ async function attemptMerge(pr1, pr2) {
         const conflictFileNames = output.split("\n").filter(Boolean);
 
         for (const filename of conflictFileNames) {
+          debug(`Extracting conflicting line numbers for ${filename}`);
           conflictData[filename] = extractConflictingLineNumbers(filename);
         }
       }
