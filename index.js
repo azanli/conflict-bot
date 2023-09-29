@@ -262,7 +262,7 @@ async function createConflictComment({
   conflictArray,
 }) {
   try {
-    let conflictMessage = "### Conflicts Found\n\n";
+    let conflictMessage = "### 🤖 Merge Issues Detected\n\n";
 
     for (const data of conflictArray) {
       conflictMessage += `<details>\n`;
