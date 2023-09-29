@@ -333,9 +333,11 @@ async function createConflictComment(conflictArray) {
   const repo = variables.get("repo");
 
   try {
-    let conflictMessage = "🤖 Merge Issues Detected\n\n";
+    let totalFilesWithConflicts = 0;
+    let conflictMessage = "";
 
     for (const data of conflictArray) {
+      totalFilesWithConflicts += Object.keys(data.conflictData).length;
       conflictMessage += `<details>\n`;
       conflictMessage += `  <summary>Pull Request #${data.number}</summary>\n`;
 
@@ -357,6 +359,12 @@ async function createConflictComment(conflictArray) {
 
       conflictMessage += `</details>\n\n`;
     }
+
+    const prs = conflictArray.length === 1 ? "PR" : "PRs";
+
+    conflictMessage =
+      `Conflicts detected in ${totalFilesWithConflicts} files across ${conflictArray.length} ${prs}\n\n` +
+      conflictMessage;
 
     await octokit.rest.issues.createComment({
       owner: repo.owner,
