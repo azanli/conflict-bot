@@ -1,6 +1,6 @@
 {
-  "name": "ConflictBot",
-  "version": "0.0.1",
+  "name": "conflictbot",
+  "version": "1.0.0",
   "description": "Github action for tracking conflicts between open pull requests",
   "main": "index.js",
   "scripts": {
