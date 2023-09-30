@@ -25,7 +25,7 @@ class Variables {
       mainBranch: core.getInput("main-branch", { required: false }) || "main",
       octokit: github.getOctokit(token),
       pullRequestAuthor: pullRequest.user.login,
-      pullRequestName: null,
+      pullRequestBranch: pullRequest.head.ref,
       pullRequestNumber: pullRequest.number,
       quiet,
       repo: github.context.repo,
@@ -69,14 +69,10 @@ async function main() {
 
 async function setup() {
   const variables = new Variables();
-  const pullRequestNumber = variables.get("pullRequestNumber");
   const mainBranch = variables.get("mainBranch");
+  const pullRequestBranch = variables.get("pullRequestBranch");
 
   try {
-    const pullRequestName = await getBranchName(pullRequestNumber);
-
-    variables.set("pullRequestName", pullRequestName);
-
     // Configure Git with a dummy user identity
     execSync(`git config user.email "action@github.com"`);
     execSync(`git config user.name "GitHub Action"`);
@@ -85,11 +81,11 @@ async function setup() {
 
     // Fetch PR branches into temporary refs
     execSync(
-      `git fetch origin ${pullRequestName}:refs/remotes/origin/tmp_${pullRequestName}`
+      `git fetch origin ${pullRequestBranch}:refs/remotes/origin/tmp_${pullRequestBranch}`
     );
 
     // Merge main into pull request branch in memory
-    execSync(`git checkout refs/remotes/origin/tmp_${pullRequestName}`);
+    execSync(`git checkout refs/remotes/origin/tmp_${pullRequestBranch}`);
     execSync(`git merge ${mainBranch} --no-commit --no-ff`);
     execSync(`git reset --hard HEAD`);
   } catch (error) {
@@ -126,6 +122,7 @@ async function getOpenPullRequests() {
     const openPullRequests = pullRequests.map((pr) => ({
       number: pr.number,
       author: pr.user.login,
+      branch: pr.head.ref,
     }));
 
     return openPullRequests;
@@ -140,20 +137,20 @@ async function getConflictArrayData() {
   const pullRequestNumber = variables.get("pullRequestNumber");
 
   const openPullRequests = await getOpenPullRequests();
-  const otherOpenPullRequests = openPullRequests.filter(
+  const otherPullRequests = openPullRequests.filter(
     (pr) => pr.number !== pullRequestNumber
   );
 
   const conflictArray = [];
 
-  for (const openPullRequest of otherOpenPullRequests) {
-    const conflictData = await checkForConflicts(openPullRequest.number);
+  for (const otherPullRequest of otherPullRequests) {
+    const conflictData = await checkForConflicts(otherPullRequest);
 
     if (Object.keys(conflictData).length > 0) {
       conflictArray.push({
-        number: openPullRequest.number,
-        author: openPullRequest.author,
+        author: otherPullRequest.author,
         conflictData,
+        number: otherPullRequest.number,
       });
     }
   }
@@ -161,20 +158,18 @@ async function getConflictArrayData() {
   return conflictArray;
 }
 
-async function checkForConflicts(otherPullRequestNumber) {
+async function checkForConflicts(otherPullRequest) {
   const variables = new Variables();
-  const pullRequestName = variables.get("pullRequestName");
+  const pullRequestBranch = variables.get("pullRequestBranch");
   const pullRequestNumber = variables.get("pullRequestNumber");
 
-  const otherPullRequestName = await getBranchName(otherPullRequestNumber);
-
-  if (!pullRequestName || !otherPullRequestName) {
+  if (!pullRequestBranch || !otherPullRequest.branch) {
     throw new Error("Failed to fetch branch name for one or both PRs.");
   }
 
   const pullRequestFiles = await getChangedFiles(pullRequestNumber);
 
-  const otherPullRequestFiles = await getChangedFiles(otherPullRequestNumber);
+  const otherPullRequestFiles = await getChangedFiles(otherPullRequest.number);
 
   const overlappingFiles = pullRequestFiles.filter((file) =>
     otherPullRequestFiles.includes(file)
@@ -184,23 +179,9 @@ async function checkForConflicts(otherPullRequestNumber) {
     return [];
   }
 
-  const conflictData = await attemptMerge(otherPullRequestName);
+  const conflictData = await attemptMerge(otherPullRequest.branch);
 
   return conflictData;
-}
-
-async function getBranchName(anyPullRequestNumber) {
-  const variables = new Variables();
-  const octokit = variables.get("octokit");
-  const repo = variables.get("repo");
-
-  const { data: pr } = await octokit.rest.pulls.get({
-    owner: repo.owner,
-    repo: repo.repo,
-    pull_number: anyPullRequestNumber,
-  });
-
-  return pr.head.ref;
 }
 
 async function getChangedFiles(anyPullRequestNumber) {
@@ -217,9 +198,9 @@ async function getChangedFiles(anyPullRequestNumber) {
   return files.map((file) => file.filename);
 }
 
-function extractConflictingLineNumbers(otherPullRequestName, filePath) {
+function extractConflictingLineNumbers(otherPullRequestBranch, filePath) {
   const fileContentWithoutConflicts = execSync(
-    `git show origin/${otherPullRequestName}:${filePath}`
+    `git show origin/${otherPullRequestBranch}:${filePath}`
   ).toString();
   const linesFromNormalFile = fileContentWithoutConflicts.split("\n");
 
@@ -268,35 +249,35 @@ function extractConflictingLineNumbers(otherPullRequestName, filePath) {
   return conflictLines;
 }
 
-async function attemptMerge(otherPullRequestName) {
+async function attemptMerge(otherPullRequestBranch) {
   const variables = new Variables();
   const mainBranch = variables.get("mainBranch");
-  const pullRequestName = variables.get("pullRequestName");
+  const pullRequestBranch = variables.get("pullRequestBranch");
   const quiet = variables.get("quiet");
 
   const conflictData = {};
 
   try {
     debug(
-      `Attempting to merge #${otherPullRequestName} into #${pullRequestName}`
+      `Attempting to merge #${otherPullRequestBranch} into #${pullRequestBranch}`
     );
 
     execSync(
-      `git fetch origin ${otherPullRequestName}:refs/remotes/origin/tmp_${otherPullRequestName}`
+      `git fetch origin ${otherPullRequestBranch}:refs/remotes/origin/tmp_${otherPullRequestBranch}`
     );
 
     // Merge main into other pull request in memory
-    execSync(`git checkout refs/remotes/origin/tmp_${otherPullRequestName}`);
+    execSync(`git checkout refs/remotes/origin/tmp_${otherPullRequestBranch}`);
     execSync(`git merge ${mainBranch} --no-commit --no-ff`);
     execSync(`git reset --hard HEAD`);
 
     try {
       // Attempt to merge other pull request branch in memory without committing or fast-forwarding
       execSync(
-        `git merge refs/remotes/origin/tmp_${pullRequestName} --no-commit --no-ff`
+        `git merge refs/remotes/origin/tmp_${pullRequestBranch} --no-commit --no-ff`
       );
 
-      debug(`${otherPullRequestName} merge successful. No conflicts found.`);
+      debug(`${otherPullRequestBranch} merge successful. No conflicts found.`);
     } catch (mergeError) {
       const stdoutStr = mergeError.stdout.toString();
       if (stdoutStr.includes("Automatic merge failed")) {
@@ -314,7 +295,7 @@ async function attemptMerge(otherPullRequestName) {
         for (const filename of conflictFileNames) {
           debug(`Extracting conflicting line numbers for ${filename}`);
           conflictData[filename] = extractConflictingLineNumbers(
-            otherPullRequestName,
+            otherPullRequestBranch,
             filename
           );
         }
@@ -326,7 +307,7 @@ async function attemptMerge(otherPullRequestName) {
     execSync(`git reset --hard HEAD`); // Reset any changes
     // Cleanup by deleting temporary refs
     execSync(
-      `git update-ref -d refs/remotes/origin/tmp_${otherPullRequestName}`
+      `git update-ref -d refs/remotes/origin/tmp_${otherPullRequestBranch}`
     );
   }
 
@@ -368,9 +349,10 @@ async function createConflictComment(conflictArray) {
     }
 
     const prs = conflictArray.length === 1 ? "PR" : "PRs";
+    const files = totalFilesWithConflicts === 1 ? "file" : "files";
 
     conflictMessage =
-      `Conflicts detected in ${totalFilesWithConflicts} files across ${conflictArray.length} ${prs}\n\n` +
+      `Conflicts detected in ${totalFilesWithConflicts} ${files} across ${conflictArray.length} ${prs}\n\n` +
       conflictMessage;
 
     await octokit.rest.issues.createComment({
