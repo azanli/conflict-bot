@@ -44,7 +44,7 @@ class Variables {
   }
 }
 
-async function main() {
+async function main2() {
   try {
     await setup();
 
@@ -425,4 +425,4 @@ async function requestReviewsInConflictingPRs(conflictArray) {
   }
 }
 
-main();
+main2();
