@@ -16,8 +16,8 @@ class Variables {
 
     const token = core.getInput("github-token", { required: true });
 
-    const quietInput = core.getInput("quiet", { required: false }) || "false"; //
-    const quiet = ["true", "yes", "on"].includes(quietInput.toLowerCase()); //
+    const quietInput = core.getInput("quiet", { required: false }) || "false"; // 1
+    const quiet = ["true", "yes", "on"].includes(quietInput.toLowerCase()); // 2
 
     const pullRequest = github.context.payload.pull_request;
 
@@ -25,7 +25,7 @@ class Variables {
       mainBranch: core.getInput("main-branch", { required: false }) || "main",
       octokit: github.getOctokit(token),
       pullRequestAuthor: pullRequest.user.login,
-      pullRequestBranch: pullRequest.head.ref, // The branch that the pull request is from
+      pullRequestBranch: pullRequest.head.ref, // The branch that the pr is from
       pullRequestNumber: pullRequest.number,
       quiet,
       repo: github.context.repo,
