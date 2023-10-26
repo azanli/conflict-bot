@@ -123,6 +123,7 @@ async function getOpenPullRequests() {
       number: pr.number,
       author: pr.user.login,
       branch: pr.head.ref,
+      title: pr.title,
     }));
 
     return openPullRequests;
@@ -151,6 +152,7 @@ async function getConflictArrayData() {
         author: otherPullRequest.author,
         conflictData,
         number: otherPullRequest.number,
+        title: otherPullRequest.title,
       });
     }
   }
@@ -327,7 +329,7 @@ async function createConflictComment(conflictArray) {
     for (const data of conflictArray) {
       totalFilesWithConflicts += Object.keys(data.conflictData).length;
       conflictMessage += `<details>\n`;
-      conflictMessage += `  <summary>Pull Request #${data.number} by @${data.author}</summary>\n`;
+      conflictMessage += `  <summary>Pull Request ${data.title} (#${data.number}) by @${data.author}</summary>\n`;
 
       for (const [fileName, lineNumbers] of Object.entries(data.conflictData)) {
         const { data: files } = await octokit.rest.pulls.listFiles({
