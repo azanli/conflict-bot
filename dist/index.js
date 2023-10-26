@@ -10206,7 +10206,7 @@ async function createConflictComment(conflictArray) {
     for (const data of conflictArray) {
       totalFilesWithConflicts += Object.keys(data.conflictData).length;
       conflictMessage += `<details>\n`;
-      conflictMessage += `  <summary>Pull Request ${data.title} (#${data.number}) by @${data.author}</summary>\n`;
+      conflictMessage += `  <summary>${data.title} (#${data.number}) by @${data.author}</summary>\n`;
 
       for (const [fileName, lineNumbers] of Object.entries(data.conflictData)) {
         const { data: files } = await octokit.rest.pulls.listFiles({
