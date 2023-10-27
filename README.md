@@ -43,7 +43,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Run PR Conflict Checker
-        uses: ConflictBot/ConflictBot@v1
+        uses: depandabot/conflict-bot@v1
         with:
           github-token: ${{ secrets.CONFLICT_BOT_ACCESS_TOKEN }}
           main-branch: main
