@@ -45,6 +45,11 @@ class Variables {
 }
 
 async function main() {
+  if (github.context.payload.pull_request.draft) {
+    debug(`Not running any checks because this pull request is a draft.`)
+    return
+  }
+
   try {
     await setup();
 
@@ -52,12 +57,14 @@ async function main() {
 
     if (conflictArray.length > 0) {
       const quiet = new Variables().get("quiet");
-      if (!quiet) {
+
+      // Request reviews from conflicting PR authors for this PR.
+      const reviews_requested = await requestReviews(conflictArray);
+      if (!quiet && reviews_requested > 0) {
         await createConflictComment(conflictArray);
       }
 
-      await requestReviews(conflictArray);
-
+      // Add this PR's author as a reviewer on conflicting PRs.
       await requestReviewsInConflictingPRs(conflictArray);
     }
   } catch (error) {
@@ -118,13 +125,21 @@ async function getOpenPullRequests() {
       per_page: 100,
     });
 
-    // Map the list to only contain relevant information (PR number and author)
-    const openPullRequests = pullRequests.map((pr) => ({
-      number: pr.number,
-      author: pr.user.login,
-      branch: pr.head.ref,
-      title: pr.title,
-    }));
+    const openPullRequests = []
+
+    for (const pr of pullRequests) {
+      if (pr.draft) {
+        continue
+      }
+
+      openPullRequests.push({
+        number: pr.number,
+        author: pr.user.login,
+        branch: pr.head.ref,
+        title: pr.title,
+        reviewers: await getAllReviewers(pr.number),
+      })
+    }
 
     return openPullRequests;
   } catch (error) {
@@ -153,6 +168,7 @@ async function getConflictArrayData() {
         conflictData,
         number: otherPullRequest.number,
         title: otherPullRequest.title,
+        reviewers: otherPullRequest.reviewers,
       });
     }
   }
@@ -377,22 +393,29 @@ async function requestReviews(conflictArray) {
   const repo = variables.get("repo");
 
   try {
+    const existing_reviewers = await getAllReviewers(pullRequestNumber)
     const reviewers = [
       ...new Set(
         conflictArray
           .map((conflict) => conflict.author)
-          .filter((author) => author !== pullRequestAuthor)
+          .filter((author) => author !== pullRequestAuthor && !existing_reviewers.has(author))
       ),
     ];
 
-    debug(`Requesting reviews from ${reviewers.join(", ")}`);
+    if (reviewers.length > 0) {
+      debug(`Requesting reviews from ${reviewers.join(", ")}`);
 
-    await octokit.rest.pulls.requestReviewers({
-      owner: repo.owner,
-      repo: repo.repo,
-      pull_number: pullRequestNumber,
-      reviewers: reviewers,
-    });
+      await octokit.rest.pulls.requestReviewers({
+        owner: repo.owner,
+        repo: repo.repo,
+        pull_number: pullRequestNumber,
+        reviewers: reviewers,
+      });
+    } else {
+      debug(`No new reviews to request.`)
+    }
+
+    return reviewers.length
   } catch (error) {
     console.error(`Error requesting reviews: ${error.message}`);
     throw error;
@@ -407,7 +430,7 @@ async function requestReviewsInConflictingPRs(conflictArray) {
 
   try {
     for (const conflict of conflictArray) {
-      if (conflict.author !== pullRequestAuthor) {
+      if (conflict.author !== pullRequestAuthor && !conflict.reviewers.has(pullRequestAuthor)) {
         debug(
           `Requesting review from ${pullRequestAuthor} in #${conflict.number}`
         );
@@ -426,6 +449,31 @@ async function requestReviewsInConflictingPRs(conflictArray) {
     );
     throw error;
   }
+}
+
+// This function gets all reviewers on the conflicting pull requests.
+// The reviewers include requested reviewers and those who have left a review.
+async function getAllReviewers(pr_number) {
+  const variables = new Variables();
+  const octokit = variables.get("octokit");
+  const repo = variables.get("repo");
+
+  const { data: reviews } = await octokit.rest.pulls.listReviews({
+    owner: repo.owner,
+    repo: repo.repo,
+    pull_number: pr_number,
+  });
+
+  const { data: requested_reviewers } = await octokit.rest.pulls.listRequestedReviewers({
+    owner: repo.owner,
+    repo: repo.repo,
+    pull_number: pr_number,
+  });
+
+  const viewed_reviewers = reviews.map((r) => r.user.login)
+  const req_reviewers = requested_reviewers.users.map((r) => r.login)
+
+  return new Set (viewed_reviewers.concat(req_reviewers))
 }
 
 main();
