@@ -4,6 +4,7 @@ const { execSync } = require("child_process");
 const readFileSync = require("fs").readFileSync;
 
 const { debug, formatLineNumbers } = require("./index.utils");
+const excludedFiles = ["go.mod", "go.sum", "vendor/"];
 
 class Variables {
   static _instance = null;
@@ -59,13 +60,13 @@ async function main() {
       const quiet = new Variables().get("quiet");
 
       // Request reviews from conflicting PR authors for this PR.
-      const reviews_requested = await requestReviews(conflictArray);
-      if (!quiet && reviews_requested > 0) {
+      const reviews_requested_on_pr = await requestReviews(conflictArray);
+      // Add this PR's author as a reviewer on conflicting PRs.
+      const reviews_requested_on_conflicting_prs = await requestReviewsInConflictingPRs(conflictArray);
+
+      if (!quiet && (reviews_requested_on_pr > 0 || reviews_requested_on_conflicting_prs > 0)) {
         await createConflictComment(conflictArray);
       }
-
-      // Add this PR's author as a reviewer on conflicting PRs.
-      await requestReviewsInConflictingPRs(conflictArray);
     }
   } catch (error) {
     core.setFailed(error.message);
@@ -118,16 +119,28 @@ async function getOpenPullRequests() {
   const repo = variables.get("repo");
 
   try {
-    const { data: pullRequests } = await octokit.rest.pulls.list({
-      owner: repo.owner,
-      repo: repo.repo,
-      state: "open",
-      per_page: 100,
-    });
+    const allPullRequests = []
+    let page = 1;
+    while (true) {
+      const { data: pullRequests } = await octokit.rest.pulls.list({
+        owner: repo.owner,
+        repo: repo.repo,
+        state: "open",
+        per_page: 100,
+        page: page,
+      });
+
+      if (pullRequests.length > 0) {
+        allPullRequests.push(...pullRequests);
+        page++;
+      } else {
+        break
+      }
+    }
 
     const openPullRequests = []
 
-    for (const pr of pullRequests) {
+    for (const pr of allPullRequests) {
       if (pr.draft) {
         continue
       }
@@ -213,7 +226,7 @@ async function getChangedFiles(anyPullRequestNumber) {
     pull_number: anyPullRequestNumber,
   });
 
-  return files.map((file) => file.filename);
+  return files.map((file) => file.filename).filter((file) => !ignoreFile(file));
 }
 
 function extractConflictingLineNumbers(otherPullRequestBranch, filePath) {
@@ -348,13 +361,26 @@ async function createConflictComment(conflictArray) {
       conflictMessage += `  <summary>${data.title} (#${data.number}) by @${data.author}</summary>\n`;
 
       for (const [fileName, lineNumbers] of Object.entries(data.conflictData)) {
-        const { data: files } = await octokit.rest.pulls.listFiles({
-          owner: repo.owner,
-          repo: repo.repo,
-          pull_number: data.number,
-        });
+        const allFiles = []
+        let page = 1;
+        while (true) {
+          const { data: files } = await octokit.rest.pulls.listFiles({
+            owner: repo.owner,
+            repo: repo.repo,
+            pull_number: data.number,
+            per_page: 100,
+            page: page,
+          });
 
-        const blobUrl = files.find(
+          if (files.length > 0) {
+            allFiles.push(...files);
+            page++;
+          } else {
+            break
+          }
+        }
+
+        const blobUrl = allFiles.find(
           (file) => file.filename === fileName
         ).blob_url;
 
@@ -428,6 +454,7 @@ async function requestReviewsInConflictingPRs(conflictArray) {
   const pullRequestAuthor = variables.get("pullRequestAuthor");
   const repo = variables.get("repo");
 
+  let requestedReviews = 0;
   try {
     for (const conflict of conflictArray) {
       if (conflict.author !== pullRequestAuthor && !conflict.reviewers.has(pullRequestAuthor)) {
@@ -441,8 +468,11 @@ async function requestReviewsInConflictingPRs(conflictArray) {
           pull_number: conflict.number,
           reviewers: [pullRequestAuthor],
         });
+        requestedReviews++;
       }
     }
+
+    return requestedReviews;
   } catch (error) {
     console.error(
       `Error requesting reviews in conflicting PRs: ${error.message}`
@@ -474,6 +504,15 @@ async function getAllReviewers(pr_number) {
   const req_reviewers = requested_reviewers.users.map((r) => r.login)
 
   return new Set (viewed_reviewers.concat(req_reviewers))
+}
+
+function ignoreFile(filename) {
+    for (const excluded of excludedFiles) {
+      if (filename.includes(excluded)) {
+        return true
+      }
+    }
+    return false
 }
 
 main();
